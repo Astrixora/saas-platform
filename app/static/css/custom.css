@@ -1,0 +1,98 @@
+/* ========================================
+   TigerGate Platform — Custom Styles
+   ======================================== */
+
+/* Page transitions */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: fadeIn 0.25s ease-out; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+* { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
+
+/* Table row hover */
+.tg-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.tg-table tbody tr:hover {
+  background-color: #F9FAFB;
+}
+
+/* Modal animation */
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-enter { animation: modalIn 0.2s ease-out; }
+
+/* Chart containers */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 280px;
+}
+
+/* Loading spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #E5E7EB;
+  border-top-color: #4F46E5;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* Drag-and-drop upload zone */
+.upload-zone {
+  border: 2px dashed #D1D5DB;
+  border-radius: 0.75rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.upload-zone:hover,
+.upload-zone.drag-over {
+  border-color: #4F46E5;
+  background-color: #EEF2FF;
+}
+
+/* Status badges */
+.badge-active  { background: #DCFCE7; color: #15803D; }
+.badge-inactive { background: #FEE2E2; color: #B91C1C; }
+.badge-pending { background: #FEF3C7; color: #B45309; }
+
+/* Toast notification */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(100%); }
+}
+.toast-enter { animation: toastIn 0.3s ease-out; }
+.toast-exit  { animation: toastOut 0.25s ease-in forwards; }
+
+/* Toggle switch */
+.toggle-track {
+  width: 44px; height: 24px;
+  border-radius: 12px;
+  background: #D1D5DB;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-track.active { background: #4F46E5; }
+.toggle-knob {
+  width: 18px; height: 18px;
+  background: white;
+  border-radius: 50%;
+  position: absolute; top: 3px; left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle-track.active .toggle-knob { transform: translateX(20px); }

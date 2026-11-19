@@ -1,0 +1,54 @@
+# ============================================================================
+# TigerGate Platform — Network Policy
+# Purpose: Network segmentation for the tigergate-prod namespace
+# ============================================================================
+#
+# VULNERABILITY [Low]: This network policy applies only to pods labeled
+# app=tigergate-api and only restricts ingress. Pods without the matching
+# label (workers, data-processor, cron jobs) have NO network policy at all,
+# meaning they accept traffic from any source and can communicate with any
+# destination. A comprehensive policy should use a default-deny rule for
+# the entire namespace and then whitelist required flows.
+# ============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tigergate-api-netpol
+  namespace: tigergate-prod
+  labels:
+    app: tigergate-api
+    environment: production
+spec:
+  podSelector:
+    matchLabels:
+      app: tigergate-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app: tigergate-frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+
+# NOTE: No default-deny NetworkPolicy exists for the namespace.
+# Best practice is to deploy a blanket deny-all policy first:
+#
+#   apiVersion: networking.k8s.io/v1
+#   kind: NetworkPolicy
+#   metadata:
+#     name: default-deny-all
+#     namespace: tigergate-prod
+#   spec:
+#     podSelector: {}
+#     policyTypes:
+#       - Ingress
+#       - Egress
+#
+# Then add explicit allow rules for each service.

@@ -1,0 +1,101 @@
+# ============================================================================
+# TigerGate Platform — Data Processing Worker Pod
+# Purpose: Batch data processing and ETL jobs
+# Namespace: tigergate-prod
+# ============================================================================
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tigergate-data-processor
+  namespace: tigergate-prod
+  labels:
+    app: tigergate-data-processor
+    tier: worker
+    environment: production
+  annotations:
+    description: "Batch processing pod for ETL and analytics pipelines"
+spec:
+  # VULNERABILITY [High]: hostPID shares the host's PID namespace with the
+  # pod. Container processes can see and signal any process on the node,
+  # enabling privilege escalation and data exfiltration.
+  hostPID: true
+
+  serviceAccountName: tigergate-worker-sa
+  restartPolicy: OnFailure
+
+  containers:
+    - name: data-processor
+      image: 012345678901.dkr.ecr.us-east-1.amazonaws.com/tigergate-data-processor:2.4.1
+      imagePullPolicy: IfNotPresent
+
+      command: ["/usr/local/bin/processor"]
+      args:
+        - "--config=/etc/processor/config.yaml"
+        - "--workers=4"
+        - "--batch-size=1000"
+
+      env:
+        - name: PROCESSOR_MODE
+          value: "batch"
+        - name: OUTPUT_BUCKET
+          value: "tigergate-processed-data"
+        - name: AWS_REGION
+          value: "us-east-1"
+
+      securityContext:
+        # VULNERABILITY [Critical]: Adding ALL capabilities grants the
+        # container every Linux kernel capability (CAP_SYS_ADMIN,
+        # CAP_NET_RAW, CAP_SYS_PTRACE, etc.), effectively giving it
+        # root-level kernel access.
+        capabilities:
+          add: ["ALL"]
+
+        # VULNERABILITY [Medium]: Writable root filesystem allows an
+        # attacker who gains container access to modify binaries,
+        # install tools, and persist backdoors.
+        readOnlyRootFilesystem: false
+
+      # VULNERABILITY [Medium]: No seccomp profile assigned. The
+      # container runs with the default Docker seccomp profile (or none
+      # if the runtime default is unconfined), permitting a wide range
+      # of system calls.
+
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "2000m"
+
+      volumeMounts:
+        - name: processor-config
+          mountPath: /etc/processor
+          readOnly: true
+        - name: data-volume
+          mountPath: /data
+        - name: scratch-space
+          mountPath: /tmp
+
+  volumes:
+    - name: processor-config
+      configMap:
+        name: tigergate-processor-config
+    - name: data-volume
+      persistentVolumeClaim:
+        claimName: tigergate-data-pvc
+    - name: scratch-space
+      emptyDir:
+        medium: Memory
+        sizeLimit: "1Gi"
+
+  nodeSelector:
+    kubernetes.io/os: linux
+    node-role: worker
+
+  tolerations:
+    - key: "workload-type"
+      operator: "Equal"
+      value: "batch"
+      effect: "NoSchedule"

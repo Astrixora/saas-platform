@@ -1,0 +1,99 @@
+# ==============================================================================
+# TigerGate Security Test Repository - .gitignore
+# ==============================================================================
+# NOTE: This repository intentionally tracks vulnerable code and sample secrets
+# for testing CNAPP, SAST, IaC, SCA, and Secret Detection engines.
+#
+# DO NOT ignore the 'secrets/' directory!
+# The sample credential files in 'secrets/' are synthetic/fake and are required
+# for automated secret-scanning benchmarks.
+# ==============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Java
+*.class
+*.log
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+target/
+.gradle/
+build/
+
+# Go
+bin/
+pkg/
+
+# Terraform (local runtime state only - keep repo .tf files tracked)
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE and OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ==============================================================================
+# INTENTIONALLY UNIGNORED FOR TESTING:
+# The following directories MUST remain tracked:
+# !secrets/
+# !secrets/**
+# !secrets/.env
+# !secrets/.npmrc
+# ==============================================================================

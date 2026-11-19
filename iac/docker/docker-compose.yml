@@ -1,0 +1,142 @@
+# ============================================================================
+# TigerGate Platform — Docker Compose (Development / Staging)
+# Purpose: Local and staging environment orchestration
+# ============================================================================
+
+version: "3.8"
+
+services:
+  # --------------------------------------------------------------------------
+  # API Server
+  # --------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tigergate-api
+    restart: unless-stopped
+
+    # VULNERABILITY [Critical]: Privileged mode gives the container full
+    # access to the host kernel, all devices, and disables most security
+    # isolation. Equivalent to running processes directly on the host.
+    privileged: true
+
+    # VULNERABILITY [High]: Host network mode removes network isolation.
+    # The container shares the host's network stack, can bind to any host
+    # port, and can sniff all host network traffic.
+    network_mode: host
+
+    # VULNERABILITY [High]: Sensitive environment variables (database
+    # credentials, API keys, JWT secrets) stored in plaintext in the
+    # compose file. Anyone with read access to this file has full access
+    # to production secrets.
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=info
+      - DB_HOST=tigergate-postgres.internal
+      - DB_PORT=5432
+      - DB_NAME=tigergate_prod
+      - DB_USER=tigergate_admin
+      - DB_PASSWORD=Pr0duction_Passw0rd!
+      - JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.c2VjcmV0
+      - AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+      - AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      - STRIPE_API_KEY=sk_test_mock_stripe_api_key_tigergate_benchmark_002
+      - REDIS_PASSWORD=r3d1s_pr0d_p@ss
+
+    # VULNERABILITY [Critical]: Mounting /etc gives the container read
+    # access to host system configuration files (passwd, shadow, ssh
+    # keys, etc.). Mounting the Docker socket allows the container to
+    # control the Docker daemon — it can start privileged containers,
+    # access other containers' data, or escape to the host entirely.
+    volumes:
+      - ./src:/opt/tigergate/src
+      - ./config:/opt/tigergate/config
+      - /etc:/host-etc:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - tigergate-data:/opt/tigergate/data
+
+    # VULNERABILITY [Medium]: No resource limits. A container can consume
+    # all available CPU and memory on the host, causing denial of service
+    # for other containers and host processes.
+
+  # --------------------------------------------------------------------------
+  # PostgreSQL Database
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: tigergate-postgres
+    restart: unless-stopped
+
+    environment:
+      - POSTGRES_DB=tigergate_prod
+      - POSTGRES_USER=tigergate_admin
+      - POSTGRES_PASSWORD=Pr0duction_Passw0rd!
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tigergate_admin -d tigergate_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Redis Cache
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: tigergate-redis
+    restart: unless-stopped
+
+    command: redis-server --requirepass r3d1s_pr0d_p@ss --maxmemory 512mb
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "r3d1s_pr0d_p@ss", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Nginx Reverse Proxy
+  # --------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: tigergate-nginx
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/ssl:/etc/nginx/ssl:ro
+
+    depends_on:
+      - api
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  tigergate-data:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local

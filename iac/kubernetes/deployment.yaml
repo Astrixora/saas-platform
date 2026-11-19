@@ -1,0 +1,140 @@
+# ============================================================================
+# TigerGate Platform — Kubernetes Deployment
+# Application: tigergate-api
+# Namespace: tigergate-prod
+# ============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tigergate-api
+  namespace: tigergate-prod
+  labels:
+    app: tigergate-api
+    tier: backend
+    environment: production
+    team: platform-engineering
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    app.kubernetes.io/managed-by: "helm"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tigergate-api
+      tier: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: tigergate-api
+        tier: backend
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      # VULNERABILITY [High]: hostNetwork shares the host's network
+      # namespace with the pod, allowing the container to sniff host
+      # traffic and bind to host ports directly.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      serviceAccountName: tigergate-api-sa
+
+      containers:
+        - name: tigergate-api
+          # VULNERABILITY [Medium]: Using the 'latest' tag means the
+          # deployed image is non-deterministic. Builds are not
+          # reproducible and rollbacks may pull different code.
+          image: 012345678901.dkr.ecr.us-east-1.amazonaws.com/tigergate-api:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          env:
+            - name: APP_ENV
+              value: "production"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: tigergate-db-credentials
+                  key: host
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tigergate-db-credentials
+                  key: password
+
+          # VULNERABILITY [Critical]: Privileged security context gives
+          # the container full access to the host kernel, equivalent to
+          # running as root on the node itself.
+          # VULNERABILITY [High]: runAsUser 0 forces the container
+          # process to run as root, increasing blast radius of any
+          # container escape.
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+
+          # VULNERABILITY [Medium]: No resource limits defined. A
+          # runaway process can consume all node CPU and memory,
+          # starving other pods and potentially crashing the node.
+
+          # VULNERABILITY [Low]: No readiness or liveness probes.
+          # Kubernetes cannot detect application failures or slow
+          # startup, leading to traffic being sent to unhealthy pods.
+
+          volumeMounts:
+            - name: app-config
+              mountPath: /etc/tigergate
+              readOnly: true
+            - name: tmp-storage
+              mountPath: /tmp
+
+      volumes:
+        - name: app-config
+          configMap:
+            name: tigergate-api-config
+        - name: tmp-storage
+          emptyDir: {}
+
+      nodeSelector:
+        kubernetes.io/os: linux
+
+      tolerations:
+        - key: "workload-type"
+          operator: "Equal"
+          value: "api"
+          effect: "NoSchedule"
+
+---
+# Service for the tigergate-api deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: tigergate-api
+  namespace: tigergate-prod
+  labels:
+    app: tigergate-api
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: tigergate-api
+    tier: backend
